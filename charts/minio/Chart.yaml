@@ -40,5 +40,8 @@ annotations:
     - name: Maintainer CloudPirates
       url: https://www.cloudpirates.io
   artifacthub.io/changes: |2
-        - kind: changed
-          description: "Chart updated"
+        - kind: added
+          description: "feat: updateing action + minio"
+          links:
+            - name: "PR #2"
+              url: "https://github.com/ixxeL2097/helm-charts/pull/2"
