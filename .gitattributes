@@ -1,0 +1,4 @@
+**/CHANGELOG.md merge=theirs
+charts/*/Chart.yaml merge=theirs
+charts/*/values.schema.json merge=theirs
+.github/workflows/* merge=theirs
