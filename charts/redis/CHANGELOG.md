@@ -1,6 +1,19 @@
 # Changelog
 
 
+## 0.9.8 (2025-10-27)
+
+* fix service annotations (#470) ([74d2a99](https://github.com/CloudPirates-io/helm-charts/commit/74d2a99))
+* chore: update CHANGELOG.md for merged changes ([cb10f6b](https://github.com/CloudPirates-io/helm-charts/commit/cb10f6b))
+* chore: update CHANGELOG.md for merged changes ([ea886c4](https://github.com/CloudPirates-io/helm-charts/commit/ea886c4))
+* chore: auto-generate values.schema.json (#466) ([650333f](https://github.com/CloudPirates-io/helm-charts/commit/650333f))
+
+## 0.9.7 (2025-10-26)
+
+* Redis / Rabbitmq: add lifecyle hooks ([b253776](https://github.com/CloudPirates-io/helm-charts/commit/b253776))
+* chore: update CHANGELOG.md for merged changes ([f9c3ff0](https://github.com/CloudPirates-io/helm-charts/commit/f9c3ff0))
+* chore: update CHANGELOG.md for merged changes ([db2d800](https://github.com/CloudPirates-io/helm-charts/commit/db2d800))
+
 ## 0.9.6 (2025-10-23)
 
 * chore: update CHANGELOG.md for merged changes ([d014098](https://github.com/CloudPirates-io/helm-charts/commit/d014098))
