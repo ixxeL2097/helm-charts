@@ -198,7 +198,7 @@ extraConfig: ""
 ## @Section Pod Disruption Budget
 pdb:
   ## @param pdb.enabled Enable Pod Disruption Budget
-  enabled: false
+  enabled: true
   ## @param pdb.minAvailable Minimum number/percentage of pods that should remain scheduled
   minAvailable: 1
   ## @param pdb.maxUnavailable Maximum number/percentage of pods that may be made unavailable
