@@ -67,7 +67,7 @@ service:
       protocol: TCP
       name: http
   ## @param service.internalTrafficPolicy Kubernetes service internal traffic policy
-  internalTrafficPolicy: ""
+  internalTrafficPolicy: "Local"
   ## @param service.annotations Additional annotations to add to the service
   annotations: {}
 
