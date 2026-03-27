@@ -29,7 +29,8 @@ image:
   pullPolicy: Always
 
 ## @param replicaCount Number of Nginx replicas to deploy
-replicaCount: 1
+## Set to 2 for high availability by default
+replicaCount: 2
 
 ## @section Container port configuration
 ## @param containerPorts Array of container ports
