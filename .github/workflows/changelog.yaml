@@ -1,0 +1,168 @@
+name: Release with Changelog
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "charts/**"
+
+  workflow_dispatch:
+    inputs:
+      charts:
+        description: "Space-separated chart names (empty = all changed)"
+        required: false
+        default: ""
+      dry-run:
+        description: "Dry run — print release notes without creating releases"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  detect:
+    name: Detect changed charts
+    runs-on: ubuntu-latest
+    outputs:
+      charts: ${{ steps.detect.outputs.charts }}
+      has_changes: ${{ steps.detect.outputs.has_changes }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Detect charts needing release
+        id: detect
+        env:
+          INPUT_CHARTS: ${{ github.event.inputs.charts || '' }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "$INPUT_CHARTS" ]; then
+            echo "Manual trigger for: $INPUT_CHARTS"
+            echo "charts=$INPUT_CHARTS" >> "$GITHUB_OUTPUT"
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Auto-detect charts with unreleased versions
+          CHANGED=""
+          for chart_dir in charts/*/; do
+            [ ! -f "$chart_dir/Chart.yaml" ] && continue
+            CHART_NAME=$(basename "$chart_dir")
+            [ "$CHART_NAME" = "common" ] && continue
+
+            CHART_VERSION=$(yq eval '.version' "$chart_dir/Chart.yaml")
+            TAG="${CHART_NAME}-${CHART_VERSION}"
+
+            if ! git tag -l | grep -q "^${TAG}$"; then
+              echo "Unreleased: $TAG"
+              [ -z "$CHANGED" ] && CHANGED="$CHART_NAME" || CHANGED="$CHANGED $CHART_NAME"
+            fi
+          done
+
+          if [ -n "$CHANGED" ]; then
+            echo "charts=$CHANGED" >> "$GITHUB_OUTPUT"
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No unreleased charts found"
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install yq
+        if: steps.detect.outputs.has_changes == 'true'
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+  release:
+    name: Release ${{ matrix.chart }}
+    needs: detect
+    if: needs.detect.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        chart: ${{ fromJSON(format('["{0}"]', join(fromJSON(format('["{0}"]', replace(needs.detect.outputs.charts, ' ', '","'))), '","'))) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install gitpython pyyaml click
+
+      - name: Get chart version
+        id: version
+        env:
+          CHART_NAME: ${{ matrix.chart }}
+        run: |
+          VERSION=$(yq eval '.version' "charts/${CHART_NAME}/Chart.yaml")
+          TAG="${CHART_NAME}-${VERSION}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Check if already released
+        id: check
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if git tag -l | grep -q "^${TAG}$"; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Tag $TAG already exists — skipping"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate release notes
+        if: steps.check.outputs.skip != 'true'
+        env:
+          CHART_NAME: ${{ matrix.chart }}
+        run: |
+          python scripts/generate-changelog.py release-notes "$CHART_NAME" \
+            --repo-url "https://github.com/${{ github.repository }}" \
+            -o /tmp/release-notes.md
+
+          echo "--- Release notes for $CHART_NAME ---"
+          cat /tmp/release-notes.md
+
+      - name: Create GitHub Release
+        if: steps.check.outputs.skip != 'true' && github.event.inputs.dry-run != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+          CHART_NAME: ${{ matrix.chart }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git tag "$TAG"
+          git push origin "$TAG"
+
+          gh release create "$TAG" \
+            --title "${CHART_NAME} ${VERSION}" \
+            --notes-file /tmp/release-notes.md
+
+          echo "✅ Released $TAG"
+
+      - name: Dry run output
+        if: steps.check.outputs.skip != 'true' && github.event.inputs.dry-run == 'true'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          echo "🔍 DRY RUN — would create release: $TAG"
+          echo "--- Notes ---"
+          cat /tmp/release-notes.md
