@@ -48,17 +48,22 @@ jobs:
           ref: main
 
       - name: Configure Git
+        env:
+          SSH_SIGNING_KEY: ${{ secrets.BOT_SSH_SIGNING_KEY }}
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.BOT_SSH_SIGNING_KEY }}" > ~/.ssh/signing_key
-          chmod 600 ~/.ssh/signing_key
           git config user.name 'cloudpirates-bot'
           git config user.email 'cloudpirates-bot@users.noreply.github.com'
-          git config gpg.format ssh
-          git config user.signingkey ~/.ssh/signing_key
-          git config commit.gpgsign true
+          if [ -n "$SSH_SIGNING_KEY" ]; then
+            mkdir -p ~/.ssh
+            echo "$SSH_SIGNING_KEY" > ~/.ssh/signing_key
+            chmod 600 ~/.ssh/signing_key
+            git config gpg.format ssh
+            git config user.signingkey ~/.ssh/signing_key
+            git config commit.gpgsign true
+          fi
 
       - name: Login to Registry
+        continue-on-error: true
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
           registry: ${{ vars.REGISTRY }}
@@ -66,6 +71,7 @@ jobs:
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
       - name: Login to GHCR
+        continue-on-error: true
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
           registry: ghcr.io
@@ -170,6 +176,7 @@ jobs:
       - name: Install cosign
         uses: sigstore/cosign-installer@v3.10.0
         if: steps.detect-changed-charts.outputs.has_changes == 'true'
+        continue-on-error: true
 
       - id: github-repo-owner-name
         uses: ASzc/change-string-case-action@ecd1412d078f2e06e9eedcbaa6fcd988151c3f82 # v8
@@ -180,6 +187,7 @@ jobs:
       - name: Upload charts to OCI registries
         id: upload-charts
         if: steps.detect-changed-charts.outputs.has_changes == 'true'
+        continue-on-error: true
         env:
           COSIGN_KEY: ${{ secrets.COSIGN_KEY }}
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
